@@ -1,0 +1,6 @@
+build-essential
+libffi-dev
+libcairo2
+libpango-1.0-0
+libgobject-2.0-0
+shared-mime-info
