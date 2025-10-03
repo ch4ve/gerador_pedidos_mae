@@ -49,4 +49,138 @@ def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagament
             </div>
             <div class="header-right">Leo Martins</div>
         </div>
-        <div class="document-type"><h2>{tipo_
+        <div class="document-type"><h2>{tipo_documento.upper()}</h2></div>
+        <div class="info-cliente">
+            <span><strong>Cliente:</strong> {cliente}</span>
+            <span><strong>Fone:</strong> {fone}</span>
+            <span><strong>Data:</strong> {data_hoje}</span>
+        </div>
+        <table class="tabela-itens">
+            <thead><tr><th>DESCRIÇÃO</th><th>VALOR TOTAL</th></tr></thead>
+            <tbody>
+                {linhas_tabela}
+                <tr class="total-geral"><td colspan="2">TOTAL GERAL: R$ {total_geral:,.2f}</td></tr>
+            </tbody>
+        </table>
+        <div class="condicoes-gerais">
+            <p><strong>Forma de Pagamento:</strong> {forma_pagamento}</p>
+            <p><strong>Prazo de Entrega:</strong> {prazo_entrega}</p>
+            {'<p><em>Orçamento válido por ' + validade_orcamento + '.</em></p>' if validade_orcamento else ''}
+        </div>
+        <div class="disclaimer">Preços sujeitos a alterações sem aviso prévio.</div>
+    </body>
+    </html>
+    """
+    return html_template
+
+# --- INTERFACE DO STREAMLIT ---
+
+# Configura a página para usar o layout largo
+st.set_page_config(page_title="Gerador de Documentos", layout="wide")
+st.title("📄 Gerador de Pedidos e Orçamentos")
+
+# Inicializa o 'session_state' para guardar os dados da prévia
+if 'preview_html' not in st.session_state:
+    st.session_state.preview_html = None
+    st.session_state.pdf_bytes = None
+    st.session_state.file_name = None
+
+# Divide a tela em duas colunas para melhor organização
+col1, col2 = st.columns([1, 1])
+
+# --- COLUNA DE ENTRADA DE DADOS ---
+with col1:
+    st.header("📝 Dados de Entrada")
+    
+    tipo_doc = st.selectbox("Selecione o tipo de documento", ["ORÇAMENTO", "PEDIDO"])
+    nome_cliente = st.text_input("Nome do Cliente")
+    fone_cliente = st.text_input("Telefone do Cliente")
+
+    st.markdown("---")
+    st.subheader("Itens do Pedido/Orçamento")
+    
+    itens_input = st.text_area(
+        "Adicione os itens, um por linha. Formato: DESCRIÇÃO $ VALOR",
+        height=200,
+        placeholder="Item 1 - Cadeira de couro 2,70x1,30m $ 1.200,00\nItem 2 - Reforma de sofá $ 1970"
+    )
+
+    st.markdown("---")
+    st.subheader("Condições Comerciais")
+    pagamento = st.text_input("Forma de Pagamento", "50% de entrada + 50% na entrega")
+    entrega = st.text_input("Prazo de Entrega", "30 dias úteis")
+    validade = st.text_input("Validade do Orçamento (dias/semanas)", "15 dias")
+
+    # Botão principal para gerar a pré-visualização
+    if st.button("👁️ Gerar Prévia", use_container_width=True):
+        try:
+            itens_lista = []
+            total = 0.0
+            linhas = itens_input.strip().split('\n')
+
+            # Validação para evitar erro com caixa de texto vazia
+            if not itens_input.strip():
+                st.error("A caixa de itens está vazia. Por favor, adicione um item.")
+                st.stop()
+
+            for i, linha in enumerate(linhas):
+                if not linha.strip(): continue # Pula linhas em branco
+                if '$' in linha:
+                    partes = linha.rsplit('$', 1)
+                    desc = partes[0].strip()
+                    
+                    if not partes[1].strip():
+                        st.error(f"Erro na linha {i+1} ('{desc}'): Não há valor após o '$'.")
+                        st.stop()
+                    
+                    # Limpeza do valor: remove pontos de milhar e troca vírgula por ponto
+                    valor_texto = partes[1].strip().replace('.', '').replace(',', '.')
+                    valor = float(valor_texto)
+                    
+                    itens_lista.append((desc, valor))
+                    total += valor
+                else:
+                    st.error(f"Erro na linha {i+1}: Item '{linha}' não contém o separador '$'.")
+                    st.stop()
+            
+            if not itens_lista:
+                st.error("Nenhum item válido encontrado. Verifique o formato.")
+            else:
+                # Gera o HTML e o PDF
+                html_final = gerar_html(tipo_doc, nome_cliente, fone_cliente, itens_lista, total, pagamento, entrega, validade)
+                pdf_bytes = HTML(string=html_final).write_pdf()
+                
+                # Gera o nome do arquivo, incluindo a data
+                data_arquivo = datetime.now().strftime('%d%m%Y')
+                nome_arquivo_final = f"{tipo_doc.lower()}_{nome_cliente.replace(' ', '_').lower()}_{data_arquivo}.pdf"
+                
+                # Salva os dados no session_state para serem usados pela prévia e pelo botão de download
+                st.session_state.preview_html = html_final
+                st.session_state.pdf_bytes = pdf_bytes
+                st.session_state.file_name = nome_arquivo_final
+                st.success("Prévia gerada com sucesso! Veja ao lado.")
+
+        except ValueError:
+            st.error("Erro ao ler um valor. Verifique se todos os itens após o '$' são números válidos (ex: 1970 ou 1970,50).")
+        except Exception as e:
+            st.error(f"Ocorreu um erro inesperado: {e}")
+            st.session_state.preview_html = None # Limpa a prévia em caso de erro
+
+# --- COLUNA DE PRÉ-VISUALIZAÇÃO ---
+with col2:
+    st.header("🔍 Pré-visualização")
+    
+    if st.session_state.preview_html:
+        # Mostra o documento renderizado como HTML
+        st.components.v1.html(st.session_state.preview_html, height=800, scrolling=True)
+        
+        # O botão de download só aparece APÓS a prévia ser gerada com sucesso
+        st.download_button(
+            label="✅ Baixar PDF",
+            data=st.session_state.pdf_bytes,
+            file_name=st.session_state.file_name,
+            mime="application/pdf",
+            use_container_width=True
+        )
+    else:
+        st.info("Clique em 'Gerar Prévia' para ver o documento aqui.")
