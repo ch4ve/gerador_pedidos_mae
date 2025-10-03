@@ -5,18 +5,15 @@ import io
 
 # --- FUNÇÃO PARA GERAR O HTML ---
 # Esta função cria o corpo do documento com base nos dados fornecidos.
+# --- FUNÇÃO PARA GERAR O HTML (COM CORREÇÃO DE FUNDO) ---
 def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagamento, prazo_entrega, validade_orcamento):
     """Gera o código HTML final do documento."""
     data_hoje = datetime.now().strftime('%d/%m/%Y')
     
-    # Monta as linhas da tabela de itens
     linhas_tabela = ""
     for desc, valor in itens:
-        # Formata o valor com separador de milhar e duas casas decimais
         linhas_tabela += f"<tr><td>{desc}</td><td>R$ {valor:,.2f}</td></tr>"
     
-    # Template HTML com CSS incorporado
-    # Inclui o CSS para quebrar palavras longas (word-wrap: break-word)
     html_template = f"""
     <!DOCTYPE html>
     <html lang="pt-BR">
@@ -24,7 +21,13 @@ def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagament
         <meta charset="UTF-8">
         <title>{tipo_documento}</title>
         <style>
-            body {{ font-family: Arial, sans-serif; margin: 40px; font-size: 14px; color: #333; }}
+            body {{ 
+                background-color: #FFFFFF; /* FORÇA O FUNDO DA PRÉVIA PARA BRANCO */
+                font-family: Arial, sans-serif; 
+                margin: 40px; 
+                font-size: 14px; 
+                color: #333; 
+            }}
             .header {{ display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #000; padding-bottom: 10px; }}
             .header-left h3, .header-left p {{ margin: 0; }}
             .header-right {{ font-size: 28px; font-family: 'Times New Roman', Times, serif; font-style: italic; }}
@@ -72,6 +75,10 @@ def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagament
     </html>
     """
     return html_template
+
+# (O restante do seu código Streamlit permanece o mesmo)
+# ... (st.set_page_config, st.title, session_state initialization, col1/col2 logic) ...
+# ... (input fields, buttons, error handling etc. remain unchanged) ...
 
 # --- INTERFACE DO STREAMLIT ---
 
@@ -184,3 +191,4 @@ with col2:
         )
     else:
         st.info("Clique em 'Gerar Prévia' para ver o documento aqui.")
+
