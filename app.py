@@ -5,15 +5,18 @@ import io
 
 # --- FUNÇÃO PARA GERAR O HTML ---
 # Esta função cria o corpo do documento com base nos dados fornecidos.
-# --- FUNÇÃO PARA GERAR O HTML (COM CORREÇÃO DE FUNDO) ---
 def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagamento, prazo_entrega, validade_orcamento):
     """Gera o código HTML final do documento."""
     data_hoje = datetime.now().strftime('%d/%m/%Y')
     
+    # Monta as linhas da tabela de itens
     linhas_tabela = ""
     for desc, valor in itens:
+        # Formata o valor com separador de milhar e duas casas decimais
         linhas_tabela += f"<tr><td>{desc}</td><td>R$ {valor:,.2f}</td></tr>"
     
+    # Template HTML com CSS incorporado
+    # Inclui a correção de fundo branco para a prévia
     html_template = f"""
     <!DOCTYPE html>
     <html lang="pt-BR">
@@ -76,26 +79,18 @@ def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagament
     """
     return html_template
 
-# (O restante do seu código Streamlit permanece o mesmo)
-# ... (st.set_page_config, st.title, session_state initialization, col1/col2 logic) ...
-# ... (input fields, buttons, error handling etc. remain unchanged) ...
-
 # --- INTERFACE DO STREAMLIT ---
 
-# Configura a página para usar o layout largo
 st.set_page_config(page_title="Gerador de Documentos", layout="wide")
 st.title("📄 Gerador de Pedidos e Orçamentos")
 
-# Inicializa o 'session_state' para guardar os dados da prévia
 if 'preview_html' not in st.session_state:
     st.session_state.preview_html = None
     st.session_state.pdf_bytes = None
     st.session_state.file_name = None
 
-# Divide a tela em duas colunas para melhor organização
 col1, col2 = st.columns([1, 1])
 
-# --- COLUNA DE ENTRADA DE DADOS ---
 with col1:
     st.header("📝 Dados de Entrada")
     
@@ -118,20 +113,18 @@ with col1:
     entrega = st.text_input("Prazo de Entrega", "30 dias úteis")
     validade = st.text_input("Validade do Orçamento (dias/semanas)", "15 dias")
 
-    # Botão principal para gerar a pré-visualização
     if st.button("👁️ Gerar Prévia", use_container_width=True):
         try:
             itens_lista = []
             total = 0.0
             linhas = itens_input.strip().split('\n')
 
-            # Validação para evitar erro com caixa de texto vazia
             if not itens_input.strip():
                 st.error("A caixa de itens está vazia. Por favor, adicione um item.")
                 st.stop()
 
             for i, linha in enumerate(linhas):
-                if not linha.strip(): continue # Pula linhas em branco
+                if not linha.strip(): continue
                 if '$' in linha:
                     partes = linha.rsplit('$', 1)
                     desc = partes[0].strip()
@@ -140,7 +133,6 @@ with col1:
                         st.error(f"Erro na linha {i+1} ('{desc}'): Não há valor após o '$'.")
                         st.stop()
                     
-                    # Limpeza do valor: remove pontos de milhar e troca vírgula por ponto
                     valor_texto = partes[1].strip().replace('.', '').replace(',', '.')
                     valor = float(valor_texto)
                     
@@ -153,35 +145,33 @@ with col1:
             if not itens_lista:
                 st.error("Nenhum item válido encontrado. Verifique o formato.")
             else:
-                # Gera o HTML e o PDF
                 html_final = gerar_html(tipo_doc, nome_cliente, fone_cliente, itens_lista, total, pagamento, entrega, validade)
                 pdf_bytes = HTML(string=html_final).write_pdf()
                 
-                # Gera o nome do arquivo, incluindo a data
                 data_arquivo = datetime.now().strftime('%d%m%Y')
                 nome_arquivo_final = f"{tipo_doc.lower()}_{nome_cliente.replace(' ', '_').lower()}_{data_arquivo}.pdf"
                 
-                # Salva os dados no session_state para serem usados pela prévia e pelo botão de download
                 st.session_state.preview_html = html_final
                 st.session_state.pdf_bytes = pdf_bytes
                 st.session_state.file_name = nome_arquivo_final
+                
                 st.success("Prévia gerada com sucesso! Veja ao lado.")
+                
+                # --- ANIMAÇÃO DE SUCESSO ADICIONADA AQUI ---
+                st.balloons()
 
         except ValueError:
             st.error("Erro ao ler um valor. Verifique se todos os itens após o '$' são números válidos (ex: 1970 ou 1970,50).")
         except Exception as e:
             st.error(f"Ocorreu um erro inesperado: {e}")
-            st.session_state.preview_html = None # Limpa a prévia em caso de erro
+            st.session_state.preview_html = None
 
-# --- COLUNA DE PRÉ-VISUALIZAÇÃO ---
 with col2:
     st.header("🔍 Pré-visualização")
     
     if st.session_state.preview_html:
-        # Mostra o documento renderizado como HTML
         st.components.v1.html(st.session_state.preview_html, height=800, scrolling=True)
         
-        # O botão de download só aparece APÓS a prévia ser gerada com sucesso
         st.download_button(
             label="✅ Baixar PDF",
             data=st.session_state.pdf_bytes,
@@ -191,4 +181,3 @@ with col2:
         )
     else:
         st.info("Clique em 'Gerar Prévia' para ver o documento aqui.")
-
