@@ -94,10 +94,12 @@ fone_cliente = st.text_input("Telefone do Cliente")
 
 st.markdown("---")
 st.subheader("Itens do Pedido/Orçamento")
+
+# <<< ALTERAÇÃO 1: INSTRUÇÃO PARA O USUÁRIO >>>
 itens_input = st.text_area(
-    "Adicione os itens, um por linha, no formato: DESCRIÇÃO, VALOR (ex: Reforma de cadeira, 150.50)",
+    "Adicione os itens, um por linha, no formato: DESCRIÇÃO $ VALOR (ex: Reforma de cadeira $ 150.50)",
     height=150,
-    placeholder="Item 1 - Cadeira para quarto, 1000.00\nItem 2 - Cabeceira de cama, 500.00"
+    placeholder="Item 1 - Cadeira para quarto $ 1000.00\nItem 2 - Cabeceira de cama $ 500.00"
 )
 
 st.markdown("---")
@@ -114,10 +116,11 @@ if st.button("Gerar PDF"):
         total = 0.0
         linhas = itens_input.strip().split('\n')
         for linha in linhas:
-            if ',' in linha:
-                partes = linha.split(',')
+            # <<< ALTERAÇÃO 2: LÓGICA PARA DIVIDIR A LINHA >>>
+            if '$' in linha:
+                partes = linha.rsplit('$', 1) # Divide a string no '$' de trás para frente, apenas uma vez
                 desc = partes[0].strip()
-                valor = float(partes[-1].strip())
+                valor = float(partes[1].strip())
                 itens_lista.append((desc, valor))
                 total += valor
         
