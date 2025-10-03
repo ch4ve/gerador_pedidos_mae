@@ -26,7 +26,7 @@ def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagament
             .document-type {{ text-align: center; margin: 15px 0; font-size: 18px; border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 5px 0; }}
             .info-cliente {{ border: 1px solid #ccc; padding: 10px; display: flex; justify-content: space-between; }}
             .tabela-itens {{ width: 100%; border-collapse: collapse; margin-top: 20px; table-layout: fixed; }}
-            .tabela-itens th, .tabela-itens td {{ border: 1px solid #ccc; padding: 8px; text-align: left; word-wrap: break-word; overflow-wrap: break-word; }}
+            .tabela-itens th, .tabela-itens td {{ border: 1px solid #ccc; padding: 8px; text-align: left; word-wrap: break-word; overflow-wrap: break-word; vertical-align: top; }}
             .tabela-itens th {{ background-color: #e9e9e9; width: 80%; }}
             .total-geral td {{ font-weight: bold; font-size: 16px; text-align: right; }}
             .condicoes-gerais {{ margin-top: 25px; border: 1px solid #ccc; padding: 15px; background-color: #f9f9f9; }}
@@ -66,7 +66,6 @@ if 'preview_html' not in st.session_state:
 
 col1, col2 = st.columns([1, 1])
 
-# --- COLUNA DE ENTRADA DE DADOS ---
 with col1:
     st.header("📝 Dados de Entrada")
     
@@ -79,16 +78,15 @@ with col1:
     
     itens_input = st.text_area(
         "Adicione os itens, um por linha. Formato: DESCRIÇÃO $ VALOR",
-        height=250, # Aumentei um pouco a altura
+        height=250,
         placeholder="Item 1 - Cadeira de couro 2,70x1,30m $ 1.200,00\nItem 2 - Reforma de sofá $ 1970"
     )
 
     st.markdown("---")
     st.subheader("Condições Comerciais")
-    pagamento = st.text_input("Forma de Pagamento", "50% de entrada + 50% na entrega")
+    pagamento = st.text_input("Forma de Pagamento", "Em até 3 vezes iguais sem juros no cartão ou para pagamento à vista no ato do pedido - 5% pix/ transferência")
     entrega = st.text_input("Prazo de Entrega", "30 dias úteis")
 
-    # Botão "Gerar Prévia" continua na coluna de entrada
     if st.button("👁️ Gerar Prévia", use_container_width=True):
         st.session_state.show_generate_button = False
         st.session_state.show_download_button = False
@@ -105,7 +103,12 @@ with col1:
                 if not linha.strip(): continue
                 if '$' in linha:
                     partes = linha.rsplit('$', 1)
-                    desc, valor_str = partes[0].strip(), partes[1].strip()
+                    
+                    # --- AJUSTE FINAL AQUI ---
+                    # Remove quebras de linha (\n) da descrição e substitui por um espaço
+                    desc = partes[0].strip().replace('\n', ' ')
+                    valor_str = partes[1].strip()
+                    
                     if not valor_str:
                         st.error(f"Erro na linha {i+1} ('{desc}'): Não há valor após o '$'.")
                         st.stop()
@@ -124,14 +127,12 @@ with col1:
         except Exception as e:
             st.error(f"Ocorreu um erro ao gerar a prévia: {e}")
 
-# --- COLUNA DE PRÉ-VISUALIZAÇÃO E AÇÕES ---
 with col2:
     st.header("🔍 Pré-visualização e Ações")
     
     if st.session_state.preview_html:
         st.components.v1.html(st.session_state.preview_html, height=600, scrolling=True)
         
-        # Botão "Gerar PDF" agora aparece aqui, abaixo da prévia
         if st.session_state.show_generate_button:
             if st.button("⚙️ Gerar PDF", use_container_width=True):
                 try:
@@ -147,7 +148,6 @@ with col2:
                 except Exception as e:
                     st.error(f"Ocorreu um erro ao gerar o arquivo PDF: {e}")
         
-        # Botão "Baixar PDF" também aparece aqui, após ser gerado
         if st.session_state.show_download_button:
             st.download_button(
                 label="✅ Baixar PDF",
