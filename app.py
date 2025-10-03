@@ -3,9 +3,8 @@ from weasyprint import HTML
 from datetime import datetime
 import io
 
-# --- FUNÇÃO PARA GERAR O HTML ---
+# --- FUNÇÃO PARA GERAR O HTML (sem alterações) ---
 def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagamento, prazo_entrega):
-    """Gera o código HTML final do documento."""
     data_hoje = datetime.now().strftime('%d/%m/%Y')
     
     linhas_tabela = ""
@@ -16,8 +15,7 @@ def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagament
     <!DOCTYPE html>
     <html lang="pt-BR">
     <head>
-        <meta charset="UTF-8">
-        <title>{tipo_documento}</title>
+        <meta charset="UTF-8"><title>{tipo_documento}</title>
         <style>
             body {{ background-color: #FFFFFF; font-family: Arial, sans-serif; margin: 40px; font-size: 14px; color: #333; }}
             .header {{ display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #000; padding-bottom: 10px; }}
@@ -77,9 +75,9 @@ with col1:
     st.subheader("Itens do Pedido/Orçamento")
     
     itens_input = st.text_area(
-        "Adicione os itens, um por linha. Formato: DESCRIÇÃO $ VALOR",
+        "Adicione os itens. Cada novo item deve começar com a palavra 'Item'.",
         height=250,
-        placeholder="Item 1 - Cadeira de couro 2,70x1,30m $ 1.200,00\nItem 2 - Reforma de sofá $ 1970"
+        placeholder="Item 1 - Descrição... $ 1200\nItem 2 - Outra descrição...\n(pode ter várias linhas)\n$ 1970"
     )
 
     st.markdown("---")
@@ -95,35 +93,49 @@ with col1:
         try:
             itens_lista = []
             total = 0.0
-            if not itens_input.strip():
+            
+            # --- NOVA LÓGICA DE PROCESSAMENTO DE ITENS ---
+            full_text = itens_input.strip()
+            if not full_text:
                 st.error("A caixa de itens está vazia.")
                 st.stop()
-            linhas = itens_input.strip().split('\n')
-            for i, linha in enumerate(linhas):
-                if not linha.strip(): continue
-                if '$' in linha:
-                    partes = linha.rsplit('$', 1)
+
+            # Normaliza 'item' para 'Item' para ser case-insensitive e divide o texto
+            item_chunks = full_text.replace('\nitem ', '\nItem ').split('Item ')
+
+            for i, chunk in enumerate(item_chunks):
+                if not chunk.strip():
+                    continue
+
+                full_item_text = "Item " + chunk
+                
+                if '$' in full_item_text:
+                    partes = full_item_text.rsplit('$', 1)
                     
-                    # --- AJUSTE FINAL AQUI ---
                     # Remove quebras de linha (\n) da descrição e substitui por um espaço
                     desc = partes[0].strip().replace('\n', ' ')
                     valor_str = partes[1].strip()
                     
                     if not valor_str:
-                        st.error(f"Erro na linha {i+1} ('{desc}'): Não há valor após o '$'.")
+                        st.error(f"O item que começa com '{desc[:30]}...' não tem valor após o '$'.")
                         st.stop()
+                    
                     valor = float(valor_str.replace('.', '').replace(',', '.'))
                     itens_lista.append((desc, valor))
                     total += valor
                 else:
-                    st.error(f"Erro na linha {i+1}: Item '{linha}' não contém o separador '$'.")
+                    st.error(f"O item que começa com 'Item {chunk.strip()[:30]}...' não contém o separador '$'.")
                     st.stop()
+            # --- FIM DA NOVA LÓGICA ---
 
             if itens_lista:
                 html_final = gerar_html(tipo_doc, nome_cliente, fone_cliente, itens_lista, total, pagamento, entrega)
                 st.session_state.preview_html = html_final
                 st.session_state.show_generate_button = True
                 st.success("Prévia gerada com sucesso! Veja ao lado.")
+            else:
+                st.error("Nenhum item válido encontrado. Verifique se cada item começa com 'Item' e tem um valor com '$'.")
+
         except Exception as e:
             st.error(f"Ocorreu um erro ao gerar a prévia: {e}")
 
