@@ -3,8 +3,7 @@ from weasyprint import HTML
 from datetime import datetime
 import io
 
-# --- FUNÇÃO PARA GERAR O HTML (ATUALIZADA) ---
-# O parâmetro 'validade_orcamento' foi removido da função.
+# --- FUNÇÃO PARA GERAR O HTML ---
 def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagamento, prazo_entrega):
     """Gera o código HTML final do documento."""
     data_hoje = datetime.now().strftime('%d/%m/%Y')
@@ -46,7 +45,7 @@ def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagament
         <div class="condicoes-gerais">
             <p><strong>Forma de Pagamento:</strong> {forma_pagamento}</p>
             <p><strong>Prazo de Entrega:</strong> {prazo_entrega}</p>
-            </div>
+        </div>
         <div class="disclaimer">Preços sujeitos a alterações sem aviso prévio.</div>
     </body>
     </html>
@@ -67,6 +66,7 @@ if 'preview_html' not in st.session_state:
 
 col1, col2 = st.columns([1, 1])
 
+# --- COLUNA DE ENTRADA DE DADOS ---
 with col1:
     st.header("📝 Dados de Entrada")
     
@@ -79,7 +79,7 @@ with col1:
     
     itens_input = st.text_area(
         "Adicione os itens, um por linha. Formato: DESCRIÇÃO $ VALOR",
-        height=200,
+        height=250, # Aumentei um pouco a altura
         placeholder="Item 1 - Cadeira de couro 2,70x1,30m $ 1.200,00\nItem 2 - Reforma de sofá $ 1970"
     )
 
@@ -87,8 +87,8 @@ with col1:
     st.subheader("Condições Comerciais")
     pagamento = st.text_input("Forma de Pagamento", "50% de entrada + 50% na entrega")
     entrega = st.text_input("Prazo de Entrega", "30 dias úteis")
-    # A linha do input "Validade do Orçamento" foi removida daqui
 
+    # Botão "Gerar Prévia" continua na coluna de entrada
     if st.button("👁️ Gerar Prévia", use_container_width=True):
         st.session_state.show_generate_button = False
         st.session_state.show_download_button = False
@@ -117,43 +117,44 @@ with col1:
                     st.stop()
 
             if itens_lista:
-                # A variável 'validade' foi removida da chamada da função
                 html_final = gerar_html(tipo_doc, nome_cliente, fone_cliente, itens_lista, total, pagamento, entrega)
                 st.session_state.preview_html = html_final
                 st.session_state.show_generate_button = True
-                st.success("Prévia gerada com sucesso! Veja ao lado e clique em 'Gerar PDF' abaixo para continuar.")
+                st.success("Prévia gerada com sucesso! Veja ao lado.")
         except Exception as e:
             st.error(f"Ocorreu um erro ao gerar a prévia: {e}")
 
-    if st.session_state.show_generate_button:
-        if st.button("⚙️ Gerar PDF", use_container_width=True):
-            try:
-                pdf_bytes = HTML(string=st.session_state.preview_html).write_pdf()
-                
-                data_arquivo = datetime.now().strftime('%d%m%Y')
-                nome_arquivo_final = f"{tipo_doc.lower()}_{nome_cliente.replace(' ', '_').lower()}_{data_arquivo}.pdf"
-                
-                st.session_state.pdf_bytes = pdf_bytes
-                st.session_state.file_name = nome_arquivo_final
-                st.session_state.show_download_button = True
-                st.success("PDF gerado com sucesso!")
-                st.balloons()
-            except Exception as e:
-                st.error(f"Ocorreu um erro ao gerar o arquivo PDF: {e}")
-
+# --- COLUNA DE PRÉ-VISUALIZAÇÃO E AÇÕES ---
 with col2:
-    st.header("🔍 Pré-visualização e Download")
+    st.header("🔍 Pré-visualização e Ações")
     
     if st.session_state.preview_html:
-        st.components.v1.html(st.session_state.preview_html, height=800, scrolling=True)
+        st.components.v1.html(st.session_state.preview_html, height=600, scrolling=True)
+        
+        # Botão "Gerar PDF" agora aparece aqui, abaixo da prévia
+        if st.session_state.show_generate_button:
+            if st.button("⚙️ Gerar PDF", use_container_width=True):
+                try:
+                    pdf_bytes = HTML(string=st.session_state.preview_html).write_pdf()
+                    data_arquivo = datetime.now().strftime('%d%m%Y')
+                    nome_arquivo_final = f"{tipo_doc.lower()}_{nome_cliente.replace(' ', '_').lower()}_{data_arquivo}.pdf"
+                    
+                    st.session_state.pdf_bytes = pdf_bytes
+                    st.session_state.file_name = nome_arquivo_final
+                    st.session_state.show_download_button = True
+                    st.success("PDF gerado com sucesso!")
+                    st.balloons()
+                except Exception as e:
+                    st.error(f"Ocorreu um erro ao gerar o arquivo PDF: {e}")
+        
+        # Botão "Baixar PDF" também aparece aqui, após ser gerado
+        if st.session_state.show_download_button:
+            st.download_button(
+                label="✅ Baixar PDF",
+                data=st.session_state.pdf_bytes,
+                file_name=st.session_state.file_name,
+                mime="application/pdf",
+                use_container_width=True
+            )
     else:
         st.info("Clique em 'Gerar Prévia' para ver o documento aqui.")
-        
-    if st.session_state.show_download_button:
-        st.download_button(
-            label="✅ Baixar PDF",
-            data=st.session_state.pdf_bytes,
-            file_name=st.session_state.file_name,
-            mime="application/pdf",
-            use_container_width=True
-        )
