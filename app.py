@@ -3,8 +3,9 @@ from weasyprint import HTML
 from datetime import datetime
 import io
 
-# --- FUNÇÃO PARA GERAR O HTML (sem alterações) ---
-def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagamento, prazo_entrega, validade_orcamento):
+# --- FUNÇÃO PARA GERAR O HTML (ATUALIZADA) ---
+# O parâmetro 'validade_orcamento' foi removido da função.
+def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagamento, prazo_entrega):
     """Gera o código HTML final do documento."""
     data_hoje = datetime.now().strftime('%d/%m/%Y')
     
@@ -42,7 +43,10 @@ def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagament
         <div class="document-type"><h2>{tipo_documento.upper()}</h2></div>
         <div class="info-cliente"><span><strong>Cliente:</strong> {cliente}</span><span><strong>Fone:</strong> {fone}</span><span><strong>Data:</strong> {data_hoje}</span></div>
         <table class="tabela-itens"><thead><tr><th>DESCRIÇÃO</th><th>VALOR TOTAL</th></tr></thead><tbody>{linhas_tabela}<tr class="total-geral"><td colspan="2">TOTAL GERAL: R$ {total_geral:,.2f}</td></tr></tbody></table>
-        <div class="condicoes-gerais"><p><strong>Forma de Pagamento:</strong> {forma_pagamento}</p><p><strong>Prazo de Entrega:</strong> {prazo_entrega}</p>{'<p><em>Orçamento válido por ' + validade_orcamento + '.</em></p>' if validade_orcamento else ''}</div>
+        <div class="condicoes-gerais">
+            <p><strong>Forma de Pagamento:</strong> {forma_pagamento}</p>
+            <p><strong>Prazo de Entrega:</strong> {prazo_entrega}</p>
+            </div>
         <div class="disclaimer">Preços sujeitos a alterações sem aviso prévio.</div>
     </body>
     </html>
@@ -54,14 +58,12 @@ def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagament
 st.set_page_config(page_title="Gerador de Documentos", layout="wide")
 st.title("📄 Gerador de Pedidos e Orçamentos")
 
-# --- CONTROLE DE ESTADO DO FLUXO ---
-# Adicionamos mais variáveis para controlar a visibilidade dos botões
 if 'preview_html' not in st.session_state:
     st.session_state.preview_html = None
     st.session_state.pdf_bytes = None
     st.session_state.file_name = None
-    st.session_state.show_generate_button = False # Controla o botão "Gerar PDF"
-    st.session_state.show_download_button = False # Controla o botão "Baixar PDF"
+    st.session_state.show_generate_button = False
+    st.session_state.show_download_button = False
 
 col1, col2 = st.columns([1, 1])
 
@@ -85,20 +87,16 @@ with col1:
     st.subheader("Condições Comerciais")
     pagamento = st.text_input("Forma de Pagamento", "50% de entrada + 50% na entrega")
     entrega = st.text_input("Prazo de Entrega", "30 dias úteis")
-    validade = st.text_input("Validade do Orçamento (dias/semanas)", "15 dias")
+    # A linha do input "Validade do Orçamento" foi removida daqui
 
-    # --- LÓGICA DO BOTÃO 1: GERAR PRÉVIA ---
     if st.button("👁️ Gerar Prévia", use_container_width=True):
-        # Ao gerar uma nova prévia, resetamos o estado dos botões seguintes
         st.session_state.show_generate_button = False
         st.session_state.show_download_button = False
         st.session_state.preview_html = None
         
         try:
-            # Lógica de validação e processamento dos dados de entrada
             itens_lista = []
             total = 0.0
-            # ... (código de validação dos itens, o mesmo de antes) ...
             if not itens_input.strip():
                 st.error("A caixa de itens está vazia.")
                 st.stop()
@@ -119,28 +117,25 @@ with col1:
                     st.stop()
 
             if itens_lista:
-                # Se tudo deu certo, apenas gera o HTML
-                html_final = gerar_html(tipo_doc, nome_cliente, fone_cliente, itens_lista, total, pagamento, entrega, validade)
+                # A variável 'validade' foi removida da chamada da função
+                html_final = gerar_html(tipo_doc, nome_cliente, fone_cliente, itens_lista, total, pagamento, entrega)
                 st.session_state.preview_html = html_final
-                st.session_state.show_generate_button = True # Libera o botão "Gerar PDF"
+                st.session_state.show_generate_button = True
                 st.success("Prévia gerada com sucesso! Veja ao lado e clique em 'Gerar PDF' abaixo para continuar.")
         except Exception as e:
             st.error(f"Ocorreu um erro ao gerar a prévia: {e}")
 
-    # --- LÓGICA DO BOTÃO 2: GERAR PDF (só aparece se a prévia foi gerada) ---
     if st.session_state.show_generate_button:
         if st.button("⚙️ Gerar PDF", use_container_width=True):
             try:
-                # Gera o arquivo PDF a partir do HTML salvo no estado
                 pdf_bytes = HTML(string=st.session_state.preview_html).write_pdf()
                 
-                # Gera o nome do arquivo
                 data_arquivo = datetime.now().strftime('%d%m%Y')
                 nome_arquivo_final = f"{tipo_doc.lower()}_{nome_cliente.replace(' ', '_').lower()}_{data_arquivo}.pdf"
                 
                 st.session_state.pdf_bytes = pdf_bytes
                 st.session_state.file_name = nome_arquivo_final
-                st.session_state.show_download_button = True # Libera o botão de download
+                st.session_state.show_download_button = True
                 st.success("PDF gerado com sucesso!")
                 st.balloons()
             except Exception as e:
@@ -149,13 +144,11 @@ with col1:
 with col2:
     st.header("🔍 Pré-visualização e Download")
     
-    # Mostra a prévia se ela existir
     if st.session_state.preview_html:
         st.components.v1.html(st.session_state.preview_html, height=800, scrolling=True)
     else:
         st.info("Clique em 'Gerar Prévia' para ver o documento aqui.")
         
-    # --- LÓGICA DO BOTÃO 3: BAIXAR PDF (só aparece se o PDF foi gerado) ---
     if st.session_state.show_download_button:
         st.download_button(
             label="✅ Baixar PDF",
