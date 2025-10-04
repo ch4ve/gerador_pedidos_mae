@@ -94,13 +94,11 @@ with col1:
             itens_lista = []
             total = 0.0
             
-            # --- NOVA LÓGICA DE PROCESSAMENTO DE ITENS ---
             full_text = itens_input.strip()
             if not full_text:
                 st.error("A caixa de itens está vazia.")
                 st.stop()
 
-            # Normaliza 'item' para 'Item' para ser case-insensitive e divide o texto
             item_chunks = full_text.replace('\nitem ', '\nItem ').split('Item ')
 
             for i, chunk in enumerate(item_chunks):
@@ -112,8 +110,9 @@ with col1:
                 if '$' in full_item_text:
                     partes = full_item_text.rsplit('$', 1)
                     
-                    # Remove quebras de linha (\n) da descrição e substitui por um espaço
-                    desc = partes[0].strip().replace('\n', ' ')
+                    # --- AJUSTE FINAL E MAIS ROBUSTO AQUI ---
+                    # Quebra o texto em palavras e junta com um espaço. Isso remove QUALQUER tipo de quebra de linha ou espaçamento extra.
+                    desc = " ".join(partes[0].strip().split())
                     valor_str = partes[1].strip()
                     
                     if not valor_str:
@@ -126,7 +125,6 @@ with col1:
                 else:
                     st.error(f"O item que começa com 'Item {chunk.strip()[:30]}...' não contém o separador '$'.")
                     st.stop()
-            # --- FIM DA NOVA LÓGICA ---
 
             if itens_lista:
                 html_final = gerar_html(tipo_doc, nome_cliente, fone_cliente, itens_lista, total, pagamento, entrega)
