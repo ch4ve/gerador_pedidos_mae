@@ -4,7 +4,7 @@ from datetime import datetime
 import io
 from zoneinfo import ZoneInfo
 
-# --- FUNÇÃO PARA GERAR O HTML (sem alterações) ---
+# --- FUNÇÃO PARA GERAR O HTML (AJUSTE FINAL DE CSS) ---
 def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagamento, prazo_entrega):
     data_hoje = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime('%d/%m/%Y')
     
@@ -20,13 +20,17 @@ def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagament
         <style>
             body {{ background-color: #FFFFFF; font-family: Arial, sans-serif; margin: 40px; font-size: 14px; color: #333; }}
             .header {{ display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #000; padding-bottom: 10px; }}
-            .header-left h3, .header-left p {{ margin: 0; }}
-            .header-right {{ font-size: 28px; font-family: 'Times New Roman', Times, serif; font-style: italic; }}
+            /* ... (outros estilos sem alteração) ... */
             .document-type {{ text-align: center; margin: 15px 0; font-size: 18px; border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 5px 0; }}
             .info-cliente {{ border: 1px solid #ccc; padding: 10px; display: flex; justify-content: space-between; }}
             .tabela-itens {{ width: 100%; border-collapse: collapse; margin-top: 20px; table-layout: fixed; }}
             .tabela-itens th, .tabela-itens td {{ border: 1px solid #ccc; padding: 8px; text-align: left; vertical-align: top; overflow-wrap: break-word; word-wrap: break-word; word-break: break-all; }}
-            .tabela-itens th {{ background-color: #e9e9e9; width: 80%; }}
+            .tabela-itens th {{ background-color: #e9e9e9; }}
+            
+            /* --- AJUSTE DE CSS PARA SER MAIS EXPLÍCITO --- */
+            .th-desc {{ width: 80%; }}
+            .th-valor {{ width: 20%; }}
+            
             .total-geral td {{ font-weight: bold; font-size: 16px; text-align: right; }}
             .condicoes-gerais {{ margin-top: 25px; border: 1px solid #ccc; padding: 15px; background-color: #f9f9f9; }}
             .condicoes-gerais p {{ margin: 5px 0; }}
@@ -40,7 +44,15 @@ def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagament
         </div>
         <div class="document-type"><h2>{tipo_documento.upper()}</h2></div>
         <div class="info-cliente"><span><strong>Cliente:</strong> {cliente}</span><span><strong>Fone:</strong> {fone}</span><span><strong>Data:</strong> {data_hoje}</span></div>
-        <table class="tabela-itens"><thead><tr><th>DESCRIÇÃO</th><th>VALOR TOTAL</th></tr></thead><tbody>{linhas_tabela}<tr class="total-geral"><td colspan="2">TOTAL GERAL: R$ {total_geral:,.2f}</td></tr></tbody></table>
+        <table class="tabela-itens">
+            <thead>
+                <tr>
+                    <th class="th-desc">DESCRIÇÃO</th>
+                    <th class="th-valor">VALOR TOTAL</th>
+                </tr>
+            </thead>
+            <tbody>{linhas_tabela}<tr class="total-geral"><td colspan="2">TOTAL GERAL: R$ {total_geral:,.2f}</td></tr></tbody>
+        </table>
         <div class="condicoes-gerais">
             <p><strong>Forma de Pagamento:</strong> {forma_pagamento}</p>
             <p><strong>Prazo de Entrega:</strong> {prazo_entrega}</p>
@@ -56,7 +68,6 @@ def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagament
 st.set_page_config(page_title="Gerador de Documentos", layout="wide")
 st.title("📄 Gerador de Pedidos e Orçamentos")
 
-# --- CONTROLE DE ESTADO (SESSION STATE) ---
 if 'itens' not in st.session_state:
     st.session_state.itens = [""] 
 if 'preview_html' not in st.session_state:
@@ -87,7 +98,7 @@ with col1:
 
     if st.button("Adicionar novo item"):
         st.session_state.itens.append("")
-        st.rerun() # CORREÇÃO APLICADA AQUI
+        st.rerun()
 
     st.markdown("---")
     st.subheader("Condições Comerciais")
