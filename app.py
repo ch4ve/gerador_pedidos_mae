@@ -58,7 +58,7 @@ st.title("📄 Gerador de Pedidos e Orçamentos")
 
 # --- CONTROLE DE ESTADO (SESSION STATE) ---
 if 'itens' not in st.session_state:
-    st.session_state.itens = [""] # Começa com um item em branco na lista
+    st.session_state.itens = [""] 
 if 'preview_html' not in st.session_state:
     st.session_state.preview_html = None
     st.session_state.pdf_bytes = None
@@ -78,8 +78,6 @@ with col1:
     st.markdown("---")
     st.subheader("Itens do Pedido/Orçamento")
     
-    # --- NOVA LÓGICA DE INPUTS DINÂMICOS ---
-    # Itera sobre a lista de itens no session_state para criar os campos de texto
     for i in range(len(st.session_state.itens)):
         st.session_state.itens[i] = st.text_input(
             f"Item {i+1}", 
@@ -87,10 +85,9 @@ with col1:
             key=f"item_input_{i}"
         )
 
-    # Botão para adicionar um novo campo de item à lista
     if st.button("Adicionar novo item"):
         st.session_state.itens.append("")
-        st.experimental_rerun() # Força o rerodamento para o novo campo aparecer imediatamente
+        st.rerun() # CORREÇÃO APLICADA AQUI
 
     st.markdown("---")
     st.subheader("Condições Comerciais")
@@ -106,11 +103,9 @@ with col1:
             itens_lista = []
             total = 0.0
             
-            # --- LÓGICA DE PROCESSAMENTO ATUALIZADA ---
-            # Itera sobre a lista de itens do session_state em vez de um texto único
             for i, item_str in enumerate(st.session_state.itens):
                 if not item_str.strip():
-                    continue # Pula itens em branco
+                    continue 
 
                 if '$' in item_str:
                     partes = item_str.rsplit('$', 1)
