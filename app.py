@@ -3,15 +3,16 @@ from weasyprint import HTML
 from datetime import datetime
 import io
 from zoneinfo import ZoneInfo
-import re # Módulo de Expressões Regulares para a limpeza de texto
+import re
 
-# --- FUNÇÃO PARA GERAR O HTML (CSS CORRIGIDO) ---
+# --- FUNÇÃO PARA GERAR O HTML (ÚLTIMO AJUSTE DE CSS) ---
 def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagamento, prazo_entrega):
     data_hoje = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime('%d/%m/%Y')
     
     linhas_tabela = ""
     for desc, valor in itens:
-        linhas_tabela += f"<tr><td>{desc}</td><td>R$ {valor:,.2f}</td></tr>"
+        # Envolve a descrição em um <div> para um controle de layout mais explícito
+        linhas_tabela += f"""<tr><td><div class="content">{desc}</div></td><td>R$ {valor:,.2f}</td></tr>"""
     
     html_template = f"""
     <!DOCTYPE html>
@@ -20,12 +21,9 @@ def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagament
         <meta charset="UTF-8"><title>{tipo_documento}</title>
         <style>
             body {{ background-color: #FFFFFF; font-family: Arial, sans-serif; margin: 40px; font-size: 14px; color: #333; }}
-            
-            /* --- REGRAS DE CSS DO CABEÇALHO RESTAURADAS --- */
             .header {{ display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #000; padding-bottom: 10px; }}
             .header-left h3, .header-left p {{ margin: 0; }}
             .header-right {{ font-size: 28px; font-family: 'Times New Roman', Times, serif; font-style: italic; }}
-            
             .document-type {{ text-align: center; margin: 15px 0; font-size: 18px; border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 5px 0; }}
             .info-cliente {{ border: 1px solid #ccc; padding: 10px; display: flex; justify-content: space-between; }}
             .tabela-itens {{ width: 100%; border-collapse: collapse; margin-top: 20px; table-layout: fixed; }}
@@ -48,7 +46,8 @@ def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagament
         <div class="info-cliente"><span><strong>Cliente:</strong> {cliente}</span><span><strong>Fone:</strong> {fone}</span><span><strong>Data:</strong> {data_hoje}</span></div>
         <table class="tabela-itens">
             <thead><tr><th class="th-desc">DESCRIÇÃO</th><th class="th-valor">VALOR TOTAL</th></tr></thead>
-            <tbody>{linhas_tabela}<tr class="total-geral"><td colspan="2">TOTAL GERAL: R$ {total_geral:,.2f}</td></tr></tbody>
+            <tbody>{linhas_tabela}</tbody>
+            <tfoot><tr class="total-geral"><td colspan="2">TOTAL GERAL: R$ {total_geral:,.2f}</td></tr></tfoot>
         </table>
         <div class="condicoes-gerais">
             <p><strong>Forma de Pagamento:</strong> {forma_pagamento}</p>
@@ -118,8 +117,6 @@ with col1:
                 if '$' in item_str:
                     partes = item_str.rsplit('$', 1)
                     
-                    # --- LIMPEZA DE TEXTO MAIS PODEROSA COM REGEX ---
-                    # Substitui qualquer sequência de espaços/quebras de linha por um único espaço
                     desc_raw = partes[0].strip()
                     desc = re.sub(r'\s+', ' ', desc_raw)
                     
