@@ -2,11 +2,10 @@ import streamlit as st
 from weasyprint import HTML
 from datetime import datetime
 import io
-from zoneinfo import ZoneInfo # IMPORTANTE: Adicionado para corrigir o fuso horário
+from zoneinfo import ZoneInfo
 
-# --- FUNÇÃO PARA GERAR O HTML (ATUALIZADA) ---
+# --- FUNÇÃO PARA GERAR O HTML (sem alterações) ---
 def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagamento, prazo_entrega):
-    # CORREÇÃO DE FUSO HORÁRIO
     data_hoje = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime('%d/%m/%Y')
     
     linhas_tabela = ""
@@ -26,16 +25,7 @@ def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagament
             .document-type {{ text-align: center; margin: 15px 0; font-size: 18px; border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 5px 0; }}
             .info-cliente {{ border: 1px solid #ccc; padding: 10px; display: flex; justify-content: space-between; }}
             .tabela-itens {{ width: 100%; border-collapse: collapse; margin-top: 20px; table-layout: fixed; }}
-            .tabela-itens th, .tabela-itens td {{ 
-                border: 1px solid #ccc; 
-                padding: 8px; 
-                text-align: left; 
-                vertical-align: top;
-                /* --- CORREÇÃO DE CSS MAIS ROBUSTA --- */
-                overflow-wrap: break-word;
-                word-wrap: break-word;
-                word-break: break-all; /* Força a quebra de qualquer texto para evitar estouro */
-            }}
+            .tabela-itens th, .tabela-itens td {{ border: 1px solid #ccc; padding: 8px; text-align: left; vertical-align: top; overflow-wrap: break-word; word-wrap: break-word; word-break: break-all; }}
             .tabela-itens th {{ background-color: #e9e9e9; width: 80%; }}
             .total-geral td {{ font-weight: bold; font-size: 16px; text-align: right; }}
             .condicoes-gerais {{ margin-top: 25px; border: 1px solid #ccc; padding: 15px; background-color: #f9f9f9; }}
@@ -66,6 +56,9 @@ def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagament
 st.set_page_config(page_title="Gerador de Documentos", layout="wide")
 st.title("📄 Gerador de Pedidos e Orçamentos")
 
+# --- CONTROLE DE ESTADO (SESSION STATE) ---
+if 'itens' not in st.session_state:
+    st.session_state.itens = [""] # Começa com um item em branco na lista
 if 'preview_html' not in st.session_state:
     st.session_state.preview_html = None
     st.session_state.pdf_bytes = None
@@ -85,11 +78,19 @@ with col1:
     st.markdown("---")
     st.subheader("Itens do Pedido/Orçamento")
     
-    itens_input = st.text_area(
-        "Adicione os itens. Cada novo item deve começar com a palavra 'Item'.",
-        height=250,
-        placeholder="Item 1 - Descrição... $ 1200\nItem 2 - Outra descrição...\n(pode ter várias linhas)\n$ 1970"
-    )
+    # --- NOVA LÓGICA DE INPUTS DINÂMICOS ---
+    # Itera sobre a lista de itens no session_state para criar os campos de texto
+    for i in range(len(st.session_state.itens)):
+        st.session_state.itens[i] = st.text_input(
+            f"Item {i+1}", 
+            st.session_state.itens[i], 
+            key=f"item_input_{i}"
+        )
+
+    # Botão para adicionar um novo campo de item à lista
+    if st.button("Adicionar novo item"):
+        st.session_state.itens.append("")
+        st.experimental_rerun() # Força o rerodamento para o novo campo aparecer imediatamente
 
     st.markdown("---")
     st.subheader("Condições Comerciais")
@@ -104,40 +105,37 @@ with col1:
         try:
             itens_lista = []
             total = 0.0
-            full_text = itens_input.strip()
-            if not full_text:
-                st.error("A caixa de itens está vazia.")
-                st.stop()
+            
+            # --- LÓGICA DE PROCESSAMENTO ATUALIZADA ---
+            # Itera sobre a lista de itens do session_state em vez de um texto único
+            for i, item_str in enumerate(st.session_state.itens):
+                if not item_str.strip():
+                    continue # Pula itens em branco
 
-            item_chunks = full_text.replace('\nitem ', '\nItem ').split('Item ')
-
-            for i, chunk in enumerate(item_chunks):
-                if not chunk.strip():
-                    continue
-
-                full_item_text = "Item " + chunk
-                if '$' in full_item_text:
-                    partes = full_item_text.rsplit('$', 1)
-                    
+                if '$' in item_str:
+                    partes = item_str.rsplit('$', 1)
                     desc = " ".join(partes[0].strip().split())
                     valor_str = partes[1].strip()
                     
                     if not valor_str:
-                        st.error(f"O item que começa com '{desc[:30]}...' não tem valor após o '$'.")
+                        st.error(f"O Item {i+1} ('{desc[:30]}...') não tem valor após o '$'.")
                         st.stop()
                     
                     valor = float(valor_str.replace('.', '').replace(',', '.'))
                     itens_lista.append((desc, valor))
                     total += valor
                 else:
-                    st.error(f"O item que começa com 'Item {chunk.strip()[:30]}...' não contém o separador '$'.")
+                    st.error(f"O Item {i+1} ('{item_str[:30]}...') não contém o separador '$'.")
                     st.stop()
-
-            if itens_lista:
+            
+            if not itens_lista:
+                st.error("Nenhum item foi preenchido. Por favor, adicione pelo menos um item.")
+            else:
                 html_final = gerar_html(tipo_doc, nome_cliente, fone_cliente, itens_lista, total, pagamento, entrega)
                 st.session_state.preview_html = html_final
                 st.session_state.show_generate_button = True
                 st.success("Prévia gerada com sucesso! Veja ao lado.")
+
         except Exception as e:
             st.error(f"Ocorreu um erro ao gerar a prévia: {e}")
 
@@ -151,8 +149,6 @@ with col2:
             if st.button("⚙️ Gerar PDF", use_container_width=True):
                 try:
                     pdf_bytes = HTML(string=st.session_state.preview_html).write_pdf()
-                    
-                    # CORREÇÃO DE FUSO HORÁRIO
                     data_arquivo = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime('%d%m%Y')
                     nome_arquivo_final = f"{tipo_doc.lower()}_{nome_cliente.replace(' ', '_').lower()}_{data_arquivo}.pdf"
                     
