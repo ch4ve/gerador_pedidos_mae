@@ -2,10 +2,12 @@ import streamlit as st
 from weasyprint import HTML
 from datetime import datetime
 import io
+from zoneinfo import ZoneInfo # IMPORTANTE: Adicionado para corrigir o fuso horário
 
-# --- FUNÇÃO PARA GERAR O HTML (sem alterações) ---
+# --- FUNÇÃO PARA GERAR O HTML (ATUALIZADA) ---
 def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagamento, prazo_entrega):
-    data_hoje = datetime.now().strftime('%d/%m/%Y')
+    # CORREÇÃO DE FUSO HORÁRIO
+    data_hoje = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime('%d/%m/%Y')
     
     linhas_tabela = ""
     for desc, valor in itens:
@@ -24,7 +26,16 @@ def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagament
             .document-type {{ text-align: center; margin: 15px 0; font-size: 18px; border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 5px 0; }}
             .info-cliente {{ border: 1px solid #ccc; padding: 10px; display: flex; justify-content: space-between; }}
             .tabela-itens {{ width: 100%; border-collapse: collapse; margin-top: 20px; table-layout: fixed; }}
-            .tabela-itens th, .tabela-itens td {{ border: 1px solid #ccc; padding: 8px; text-align: left; word-wrap: break-word; overflow-wrap: break-word; vertical-align: top; }}
+            .tabela-itens th, .tabela-itens td {{ 
+                border: 1px solid #ccc; 
+                padding: 8px; 
+                text-align: left; 
+                vertical-align: top;
+                /* --- CORREÇÃO DE CSS MAIS ROBUSTA --- */
+                overflow-wrap: break-word;
+                word-wrap: break-word;
+                word-break: break-all; /* Força a quebra de qualquer texto para evitar estouro */
+            }}
             .tabela-itens th {{ background-color: #e9e9e9; width: 80%; }}
             .total-geral td {{ font-weight: bold; font-size: 16px; text-align: right; }}
             .condicoes-gerais {{ margin-top: 25px; border: 1px solid #ccc; padding: 15px; background-color: #f9f9f9; }}
@@ -93,7 +104,6 @@ with col1:
         try:
             itens_lista = []
             total = 0.0
-            
             full_text = itens_input.strip()
             if not full_text:
                 st.error("A caixa de itens está vazia.")
@@ -106,12 +116,9 @@ with col1:
                     continue
 
                 full_item_text = "Item " + chunk
-                
                 if '$' in full_item_text:
                     partes = full_item_text.rsplit('$', 1)
                     
-                    # --- AJUSTE FINAL E MAIS ROBUSTO AQUI ---
-                    # Quebra o texto em palavras e junta com um espaço. Isso remove QUALQUER tipo de quebra de linha ou espaçamento extra.
                     desc = " ".join(partes[0].strip().split())
                     valor_str = partes[1].strip()
                     
@@ -131,9 +138,6 @@ with col1:
                 st.session_state.preview_html = html_final
                 st.session_state.show_generate_button = True
                 st.success("Prévia gerada com sucesso! Veja ao lado.")
-            else:
-                st.error("Nenhum item válido encontrado. Verifique se cada item começa com 'Item' e tem um valor com '$'.")
-
         except Exception as e:
             st.error(f"Ocorreu um erro ao gerar a prévia: {e}")
 
@@ -147,7 +151,9 @@ with col2:
             if st.button("⚙️ Gerar PDF", use_container_width=True):
                 try:
                     pdf_bytes = HTML(string=st.session_state.preview_html).write_pdf()
-                    data_arquivo = datetime.now().strftime('%d%m%Y')
+                    
+                    # CORREÇÃO DE FUSO HORÁRIO
+                    data_arquivo = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime('%d%m%Y')
                     nome_arquivo_final = f"{tipo_doc.lower()}_{nome_cliente.replace(' ', '_').lower()}_{data_arquivo}.pdf"
                     
                     st.session_state.pdf_bytes = pdf_bytes
