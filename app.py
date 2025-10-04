@@ -3,8 +3,9 @@ from weasyprint import HTML
 from datetime import datetime
 import io
 from zoneinfo import ZoneInfo
+import re # Módulo de Expressões Regulares para a limpeza de texto
 
-# --- FUNÇÃO PARA GERAR O HTML (AJUSTE FINAL DE CSS) ---
+# --- FUNÇÃO PARA GERAR O HTML (CSS CORRIGIDO) ---
 def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagamento, prazo_entrega):
     data_hoje = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime('%d/%m/%Y')
     
@@ -19,18 +20,19 @@ def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagament
         <meta charset="UTF-8"><title>{tipo_documento}</title>
         <style>
             body {{ background-color: #FFFFFF; font-family: Arial, sans-serif; margin: 40px; font-size: 14px; color: #333; }}
+            
+            /* --- REGRAS DE CSS DO CABEÇALHO RESTAURADAS --- */
             .header {{ display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #000; padding-bottom: 10px; }}
-            /* ... (outros estilos sem alteração) ... */
+            .header-left h3, .header-left p {{ margin: 0; }}
+            .header-right {{ font-size: 28px; font-family: 'Times New Roman', Times, serif; font-style: italic; }}
+            
             .document-type {{ text-align: center; margin: 15px 0; font-size: 18px; border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 5px 0; }}
             .info-cliente {{ border: 1px solid #ccc; padding: 10px; display: flex; justify-content: space-between; }}
             .tabela-itens {{ width: 100%; border-collapse: collapse; margin-top: 20px; table-layout: fixed; }}
             .tabela-itens th, .tabela-itens td {{ border: 1px solid #ccc; padding: 8px; text-align: left; vertical-align: top; overflow-wrap: break-word; word-wrap: break-word; word-break: break-all; }}
             .tabela-itens th {{ background-color: #e9e9e9; }}
-            
-            /* --- AJUSTE DE CSS PARA SER MAIS EXPLÍCITO --- */
             .th-desc {{ width: 80%; }}
             .th-valor {{ width: 20%; }}
-            
             .total-geral td {{ font-weight: bold; font-size: 16px; text-align: right; }}
             .condicoes-gerais {{ margin-top: 25px; border: 1px solid #ccc; padding: 15px; background-color: #f9f9f9; }}
             .condicoes-gerais p {{ margin: 5px 0; }}
@@ -45,12 +47,7 @@ def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagament
         <div class="document-type"><h2>{tipo_documento.upper()}</h2></div>
         <div class="info-cliente"><span><strong>Cliente:</strong> {cliente}</span><span><strong>Fone:</strong> {fone}</span><span><strong>Data:</strong> {data_hoje}</span></div>
         <table class="tabela-itens">
-            <thead>
-                <tr>
-                    <th class="th-desc">DESCRIÇÃO</th>
-                    <th class="th-valor">VALOR TOTAL</th>
-                </tr>
-            </thead>
+            <thead><tr><th class="th-desc">DESCRIÇÃO</th><th class="th-valor">VALOR TOTAL</th></tr></thead>
             <tbody>{linhas_tabela}<tr class="total-geral"><td colspan="2">TOTAL GERAL: R$ {total_geral:,.2f}</td></tr></tbody>
         </table>
         <div class="condicoes-gerais">
@@ -120,7 +117,12 @@ with col1:
 
                 if '$' in item_str:
                     partes = item_str.rsplit('$', 1)
-                    desc = " ".join(partes[0].strip().split())
+                    
+                    # --- LIMPEZA DE TEXTO MAIS PODEROSA COM REGEX ---
+                    # Substitui qualquer sequência de espaços/quebras de linha por um único espaço
+                    desc_raw = partes[0].strip()
+                    desc = re.sub(r'\s+', ' ', desc_raw)
+                    
                     valor_str = partes[1].strip()
                     
                     if not valor_str:
