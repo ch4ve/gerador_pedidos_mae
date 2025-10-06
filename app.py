@@ -6,13 +6,26 @@ from zoneinfo import ZoneInfo
 import re
 
 # --- FUNÇÃO PARA GERAR O HTML (ÚLTIMO AJUSTE DE CSS) ---
+Claro! A alteração foi feita inteiramente dentro da função gerar_html.
+
+Aqui está apenas a função modificada. Você pode substituir a sua função gerar_html antiga por esta.
+
+Python
+
+# --- FUNÇÃO PARA GERAR O HTML (COM DISCLAIMER CONDICIONAL) ---
 def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagamento, prazo_entrega):
     data_hoje = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime('%d/%m/%Y')
     
     linhas_tabela = ""
     for desc, valor in itens:
-        # Envolve a descrição em um <div> para um controle de layout mais explícito
         linhas_tabela += f"""<tr><td><div class="content">{desc}</div></td><td>R$ {valor:,.2f}</td></tr>"""
+    
+    # --- LÓGICA CONDICIONAL PARA A MENSAGEM ---
+    # Cria a variável que vai guardar o HTML do disclaimer
+    disclaimer_html = ""
+    # Se o tipo do documento for "ORÇAMENTO", a variável recebe o texto
+    if tipo_documento == "ORÇAMENTO":
+        disclaimer_html = '<div class="disclaimer">Preços sujeitos a alterações sem aviso prévio.</div>'
     
     html_template = f"""
     <!DOCTYPE html>
@@ -40,7 +53,7 @@ def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagament
     <body>
         <div class="header">
             <div class="header-left"><h3>REFORMAS E RESTAURAÇÕES</h3><p>RUA MANDISSUNUNGA, 174 – VILA INAH</p><p>05619-010 – SÃO PAULO – SP</p><p>Fone: (11) 3078-2757 // (11) 97056-6942</p></div>
-            <div class="header-right">Léo Martins</div>
+            <div class="header-right">Leo Martins</div>
         </div>
         <div class="document-type"><h2>{tipo_documento.upper()}</h2></div>
         <div class="info-cliente"><span><strong>Cliente:</strong> {cliente}</span><span><strong>Fone:</strong> {fone}</span><span><strong>Data:</strong> {data_hoje}</span></div>
@@ -53,7 +66,7 @@ def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagament
             <p><strong>Forma de Pagamento:</strong> {forma_pagamento}</p>
             <p><strong>Prazo de Entrega:</strong> {prazo_entrega}</p>
         </div>
-        <div class="disclaimer">Preços sujeitos a alterações sem aviso prévio.</div>
+        {disclaimer_html}
     </body>
     </html>
     """
@@ -175,4 +188,5 @@ with col2:
             )
     else:
         st.info("Clique em 'Gerar Prévia' para ver o documento aqui.")
+
 
