@@ -46,7 +46,7 @@ def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagament
     <body>
         <div class="header">
             <div class="header-left"><h3>REFORMAS E RESTAURAÇÕES</h3><p>RUA MANDISSUNUNGA, 174 – VILA INAH</p><p>05619-010 – SÃO PAULO – SP</p><p>Fone: (11) 3078-2757 // (11) 97056-6942</p></div>
-            <div class="header-right">Leo Martins</div>
+            <div class="header-right">Léo Martins</div>
         </div>
         <div class="document-type"><h2>{tipo_documento.upper()}</h2></div>
         <div class="info-cliente"><span><strong>Cliente:</strong> {cliente}</span><span><strong>Fone:</strong> {fone}</span><span><strong>Data:</strong> {data_hoje}</span></div>
@@ -181,6 +181,7 @@ with col2:
             )
     else:
         st.info("Clique em 'Gerar Prévia' para ver o documento aqui.")
+
 
 
 
