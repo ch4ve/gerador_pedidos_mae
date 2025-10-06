@@ -6,13 +6,6 @@ from zoneinfo import ZoneInfo
 import re
 
 # --- FUNÇÃO PARA GERAR O HTML (ÚLTIMO AJUSTE DE CSS) ---
-Claro! A alteração foi feita inteiramente dentro da função gerar_html.
-
-Aqui está apenas a função modificada. Você pode substituir a sua função gerar_html antiga por esta.
-
-Python
-
-# --- FUNÇÃO PARA GERAR O HTML (COM DISCLAIMER CONDICIONAL) ---
 def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagamento, prazo_entrega):
     data_hoje = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime('%d/%m/%Y')
     
@@ -188,5 +181,6 @@ with col2:
             )
     else:
         st.info("Clique em 'Gerar Prévia' para ver o documento aqui.")
+
 
 
