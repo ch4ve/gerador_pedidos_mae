@@ -5,15 +5,42 @@ import io
 from zoneinfo import ZoneInfo
 import re
 
-# --- FUNÇÃO PARA GERAR O HTML (MANTIDA IGUAL) ---
-def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagamento, prazo_entrega):
+# --- FUNÇÃO PARA GERAR O HTML COM CONTROLES VISUAIS ---
+def gerar_html(tipo_documento, cliente, fone, itens, total_calculado, forma_pagamento, prazo_entrega, exibir_total, texto_total_customizado, observacoes):
     data_hoje = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime('%d/%m/%Y')
     
     linhas_tabela = ""
     for desc, valor in itens:
         linhas_tabela += f"""<tr><td><div class="content">{desc}</div></td><td>R$ {valor:,.2f}</td></tr>"""
     
-    # Lógica do disclaimer
+    # Lógica do Total Geral
+    # Se "exibir_total" for False, a gente esconde a linha via CSS (ou não renderiza)
+    # Se tiver "texto_customizado", a gente usa ele em vez do número formatado
+    html_total = ""
+    if exibir_total:
+        valor_final_display = f"R$ {total_calculado:,.2f}"
+        if texto_total_customizado.strip():
+            valor_final_display = texto_total_customizado
+            
+        html_total = f"""
+        <tfoot>
+            <tr class="total-geral">
+                <td colspan="2">TOTAL GERAL: {valor_final_display}</td>
+            </tr>
+        </tfoot>
+        """
+
+    # Lógica das Observações Extras
+    html_obs = ""
+    if observacoes.strip():
+        # Converte quebras de linha em <br> para o HTML
+        obs_formatada = observacoes.replace('\n', '<br>')
+        html_obs = f"""
+        <div class="observacoes">
+            <strong>Observações:</strong><br>{obs_formatada}
+        </div>
+        """
+
     disclaimer_html = ""
     if tipo_documento == "ORÇAMENTO":
         disclaimer_html = '<div class="disclaimer">Preços sujeitos a alterações sem aviso prévio.</div>'
@@ -35,9 +62,10 @@ def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagament
             .tabela-itens th {{ background-color: #e9e9e9; }}
             .th-desc {{ width: 80%; }}
             .th-valor {{ width: 20%; }}
-            .total-geral td {{ font-weight: bold; font-size: 16px; text-align: right; }}
+            .total-geral td {{ font-weight: bold; font-size: 16px; text-align: right; background-color: #f0f0f0; }}
             .condicoes-gerais {{ margin-top: 25px; border: 1px solid #ccc; padding: 15px; background-color: #f9f9f9; }}
             .condicoes-gerais p {{ margin: 5px 0; }}
+            .observacoes {{ margin-top: 15px; border: 1px dashed #999; padding: 10px; background-color: #fffbe6; }}
             .disclaimer {{ text-align: right; font-style: italic; font-size: 12px; margin-top: 30px; }}
         </style>
     </head>
@@ -51,8 +79,11 @@ def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagament
         <table class="tabela-itens">
             <thead><tr><th class="th-desc">DESCRIÇÃO</th><th class="th-valor">VALOR TOTAL</th></tr></thead>
             <tbody>{linhas_tabela}</tbody>
-            <tfoot><tr class="total-geral"><td colspan="2">TOTAL GERAL: R$ {total_geral:,.2f}</td></tr></tfoot>
+            {html_total}
         </table>
+        
+        {html_obs}
+
         <div class="condicoes-gerais">
             <p><strong>Forma de Pagamento:</strong> {forma_pagamento}</p>
             <p><strong>Prazo de Entrega:</strong> {prazo_entrega}</p>
@@ -64,140 +95,120 @@ def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagament
     return html_template
 
 # --- INTERFACE DO STREAMLIT ---
-
 st.set_page_config(page_title="Gerador de Documentos", layout="wide")
 st.title("📄 Gerador de Pedidos e Orçamentos")
 
+# Inicialização de variáveis de sessão
 if 'itens' not in st.session_state:
     st.session_state.itens = [""] 
-# Inicializamos a chave que guardará o HTML editável
-if 'codigo_html_final' not in st.session_state:
-    st.session_state.codigo_html_final = ""
 if 'pdf_bytes' not in st.session_state:
     st.session_state.pdf_bytes = None
-if 'file_name' not in st.session_state:
-    st.session_state.file_name = None
 
 col1, col2 = st.columns([1, 1])
 
+# --- COLUNA 1: DADOS BRUTOS ---
 with col1:
-    st.header("📝 Dados de Entrada")
+    st.header("1. Preencher Dados")
     
-    tipo_doc = st.selectbox("Selecione o tipo de documento", ["ORÇAMENTO", "PEDIDO"])
-    nome_cliente = st.text_input("Nome do Cliente")
-    fone_cliente = st.text_input("Telefone do Cliente")
+    with st.container(border=True):
+        tipo_doc = st.selectbox("Tipo de Documento", ["ORÇAMENTO", "PEDIDO"])
+        col_cli1, col_cli2 = st.columns(2)
+        nome_cliente = col_cli1.text_input("Nome do Cliente")
+        fone_cliente = col_cli2.text_input("Telefone")
 
-    st.markdown("---")
-    st.subheader("Itens do Pedido/Orçamento")
-    
+    st.subheader("Itens")
     for i in range(len(st.session_state.itens)):
         st.session_state.itens[i] = st.text_input(
-            f"Item {i+1}", 
+            f"Item {i+1} (Use $ para separar o preço)", 
             st.session_state.itens[i], 
             key=f"item_input_{i}",
-            placeholder="Ex: Pintura da sala $ 500.00"
+            placeholder="Ex: Cortina de Linho $ 1200.00"
         )
-
-    if st.button("Adicionar novo item"):
+    
+    if st.button("➕ Adicionar Item"):
         st.session_state.itens.append("")
         st.rerun()
 
-    st.markdown("---")
-    st.subheader("Condições Comerciais")
-    pagamento = st.text_input("Forma de Pagamento", "Em até 3 vezes iguais sem juros no cartão ou para pagamento à vista no ato do pedido - 5% pix/ transferência")
-    entrega = st.text_input("Prazo de Entrega", "30 dias úteis")
+    st.subheader("Condições")
+    pagamento = st.text_input("Pagamento", "Em até 3 vezes iguais sem juros...")
+    entrega = st.text_input("Prazo", "30 dias úteis")
 
-    # Botão principal de geração
-    if st.button("👁️ Gerar Prévia (Resetar Edições)", use_container_width=True):
-        st.session_state.pdf_bytes = None # Reseta o PDF anterior
-        
+# --- LÓGICA DE CÁLCULO (Sempre roda para atualizar a preview) ---
+itens_lista = []
+total_calculado = 0.0
+erro_validacao = False
+
+for item_str in st.session_state.itens:
+    if not item_str.strip(): continue
+    if '$' in item_str:
+        partes = item_str.rsplit('$', 1)
+        desc = re.sub(r'\s+', ' ', partes[0].strip())
+        valor_str = partes[1].strip()
         try:
-            itens_lista = []
-            total = 0.0
-            
-            for i, item_str in enumerate(st.session_state.itens):
-                if not item_str.strip():
-                    continue 
+            val = float(valor_str.replace('.', '').replace(',', '.'))
+            itens_lista.append((desc, val))
+            total_calculado += val
+        except:
+            pass # Ignora erro silenciosamente na digitação
+    else:
+        # Se não tem cifrão, não processa o valor mas guarda a descrição
+        pass
 
-                if '$' in item_str:
-                    partes = item_str.rsplit('$', 1)
-                    
-                    desc_raw = partes[0].strip()
-                    desc = re.sub(r'\s+', ' ', desc_raw)
-                    
-                    valor_str = partes[1].strip()
-                    
-                    if not valor_str:
-                        st.error(f"O Item {i+1} ('{desc[:30]}...') não tem valor após o '$'.")
-                        st.stop()
-                    
-                    valor = float(valor_str.replace('.', '').replace(',', '.'))
-                    itens_lista.append((desc, valor))
-                    total += valor
-                else:
-                    st.error(f"O Item {i+1} ('{item_str[:30]}...') não contém o separador '$'.")
-                    st.stop()
-            
-            if not itens_lista:
-                st.error("Nenhum item foi preenchido. Por favor, adicione pelo menos um item.")
-            else:
-                # Gera o HTML inicial padrão
-                html_inicial = gerar_html(tipo_doc, nome_cliente, fone_cliente, itens_lista, total, pagamento, entrega)
-                
-                # AQUI ESTÁ O TRUQUE: 
-                # Jogamos o HTML gerado para a variável de estado que o text_area vai ler.
-                st.session_state.codigo_html_final = html_inicial
-                
-                st.success("Prévia gerada! Você pode editar o texto final na coluna ao lado.")
-
-        except Exception as e:
-            st.error(f"Ocorreu um erro ao gerar a prévia: {e}")
-
+# --- COLUNA 2: AJUSTES FINOS E VISUALIZAÇÃO ---
 with col2:
-    st.header("🔍 Edição Final e PDF")
+    st.header("2. Revisar e Baixar")
     
-    # Se já tivermos algum HTML gerado (ou editado), mostramos a interface
-    if st.session_state.codigo_html_final:
+    # --- PAINEL DE CONTROLE AMIGÁVEL ---
+    with st.expander("🛠️ Ajustes Finos (Clique para abrir)", expanded=True):
+        st.caption("Use as opções abaixo para personalizar o final do documento.")
         
-        st.info("💡 Você pode alterar o texto HTML abaixo manualmente antes de gerar o PDF. Útil para corrigir vírgulas ou remover totais.")
+        c1, c2 = st.columns(2)
+        # Checkbox simples para mostrar ou não o total
+        exibir_total = c1.checkbox("Mostrar Valor Total?", value=True)
         
-        # O text_area está vinculado ao session_state.codigo_html_final.
-        # Qualquer alteração manual aqui atualiza a variável automaticamente.
-        html_para_pdf = st.text_area(
-            "Editor Manual (HTML)", 
-            key="codigo_html_final", 
-            height=300
+        # Campo para substituir o valor numérico por texto
+        texto_total_customizado = c2.text_input(
+            "Substituir Total por Texto (Opcional)", 
+            placeholder="Ex: A Combinar",
+            disabled=not exibir_total,
+            help="Escreva aqui se quiser que apareça um texto em vez da soma matemática."
         )
+        
+        # Campo de observações livres
+        observacoes = st.text_area("Observações / Notas Extras", height=80)
 
-        st.markdown("### Visualização em Tempo Real")
-        # Mostra o HTML que está no editor no momento
-        st.components.v1.html(html_para_pdf, height=500, scrolling=True)
+    # --- GERAR PREVIEW EM TEMPO REAL ---
+    if itens_lista:
+        html_preview = gerar_html(
+            tipo_doc, nome_cliente, fone_cliente, itens_lista, 
+            total_calculado, pagamento, entrega,
+            exibir_total, texto_total_customizado, observacoes
+        )
         
-        st.markdown("---")
+        # Mostra o HTML renderizado
+        st.components.v1.html(html_preview, height=550, scrolling=True)
         
-        if st.button("⚙️ Gerar PDF com as Edições Acima", use_container_width=True):
-            try:
-                # Gera o PDF usando o HTML QUE ESTÁ NO EDITOR (html_para_pdf)
-                pdf_bytes = HTML(string=html_para_pdf).write_pdf()
-                
-                data_arquivo = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime('%d%m%Y')
-                nome_arquivo_final = f"{tipo_doc.lower()}_{nome_cliente.replace(' ', '_').lower()}_{data_arquivo}.pdf"
-                
-                st.session_state.pdf_bytes = pdf_bytes
-                st.session_state.file_name = nome_arquivo_final
-                st.success("PDF gerado com sucesso!")
-                st.balloons()
-            except Exception as e:
-                st.error(f"Ocorreu um erro ao gerar o arquivo PDF: {e}")
+        # Botão de Download
+        st.write("---")
+        col_btn1, col_btn2 = st.columns([2,1])
         
-        # Botão de download separado para não sumir no rerun
-        if st.session_state.pdf_bytes:
+        if col_btn1.button("✅ Tudo Certo! Gerar PDF", use_container_width=True, type="primary"):
+            pdf_bytes = HTML(string=html_preview).write_pdf()
+            st.session_state.pdf_bytes = pdf_bytes
+            
+            # Nome do arquivo
+            data_str = datetime.now().strftime('%d%m%Y')
+            nome_limpo = re.sub(r'[^a-zA-Z0-9]', '_', nome_cliente)
+            fname = f"{tipo_doc.lower()}_{nome_limpo}_{data_str}.pdf"
+            
             st.download_button(
-                label="✅ Baixar PDF Final",
-                data=st.session_state.pdf_bytes,
-                file_name=st.session_state.file_name,
+                label="⬇️ Baixar Arquivo Agora",
+                data=pdf_bytes,
+                file_name=fname,
                 mime="application/pdf",
                 use_container_width=True
             )
+            st.balloons()
+            
     else:
-        st.info("Preencha os dados e clique em 'Gerar Prévia' para habilitar o editor.")
+        st.warning("👈 Preencha os itens na esquerda para ver o resultado.")
