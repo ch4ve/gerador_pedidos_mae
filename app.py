@@ -5,7 +5,7 @@ import io
 from zoneinfo import ZoneInfo
 import re
 
-# --- FUNÇÃO PARA GERAR O HTML (ÚLTIMO AJUSTE DE CSS) ---
+# --- FUNÇÃO PARA GERAR O HTML (MANTIDA IGUAL) ---
 def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagamento, prazo_entrega):
     data_hoje = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime('%d/%m/%Y')
     
@@ -13,10 +13,8 @@ def gerar_html(tipo_documento, cliente, fone, itens, total_geral, forma_pagament
     for desc, valor in itens:
         linhas_tabela += f"""<tr><td><div class="content">{desc}</div></td><td>R$ {valor:,.2f}</td></tr>"""
     
-    # --- LÓGICA CONDICIONAL PARA A MENSAGEM ---
-    # Cria a variável que vai guardar o HTML do disclaimer
+    # Lógica do disclaimer
     disclaimer_html = ""
-    # Se o tipo do documento for "ORÇAMENTO", a variável recebe o texto
     if tipo_documento == "ORÇAMENTO":
         disclaimer_html = '<div class="disclaimer">Preços sujeitos a alterações sem aviso prévio.</div>'
     
@@ -72,12 +70,13 @@ st.title("📄 Gerador de Pedidos e Orçamentos")
 
 if 'itens' not in st.session_state:
     st.session_state.itens = [""] 
-if 'preview_html' not in st.session_state:
-    st.session_state.preview_html = None
+# Inicializamos a chave que guardará o HTML editável
+if 'codigo_html_final' not in st.session_state:
+    st.session_state.codigo_html_final = ""
+if 'pdf_bytes' not in st.session_state:
     st.session_state.pdf_bytes = None
+if 'file_name' not in st.session_state:
     st.session_state.file_name = None
-    st.session_state.show_generate_button = False
-    st.session_state.show_download_button = False
 
 col1, col2 = st.columns([1, 1])
 
@@ -95,7 +94,8 @@ with col1:
         st.session_state.itens[i] = st.text_input(
             f"Item {i+1}", 
             st.session_state.itens[i], 
-            key=f"item_input_{i}"
+            key=f"item_input_{i}",
+            placeholder="Ex: Pintura da sala $ 500.00"
         )
 
     if st.button("Adicionar novo item"):
@@ -107,10 +107,9 @@ with col1:
     pagamento = st.text_input("Forma de Pagamento", "Em até 3 vezes iguais sem juros no cartão ou para pagamento à vista no ato do pedido - 5% pix/ transferência")
     entrega = st.text_input("Prazo de Entrega", "30 dias úteis")
 
-    if st.button("👁️ Gerar Prévia", use_container_width=True):
-        st.session_state.show_generate_button = False
-        st.session_state.show_download_button = False
-        st.session_state.preview_html = None
+    # Botão principal de geração
+    if st.button("👁️ Gerar Prévia (Resetar Edições)", use_container_width=True):
+        st.session_state.pdf_bytes = None # Reseta o PDF anterior
         
         try:
             itens_lista = []
@@ -142,46 +141,63 @@ with col1:
             if not itens_lista:
                 st.error("Nenhum item foi preenchido. Por favor, adicione pelo menos um item.")
             else:
-                html_final = gerar_html(tipo_doc, nome_cliente, fone_cliente, itens_lista, total, pagamento, entrega)
-                st.session_state.preview_html = html_final
-                st.session_state.show_generate_button = True
-                st.success("Prévia gerada com sucesso! Veja ao lado.")
+                # Gera o HTML inicial padrão
+                html_inicial = gerar_html(tipo_doc, nome_cliente, fone_cliente, itens_lista, total, pagamento, entrega)
+                
+                # AQUI ESTÁ O TRUQUE: 
+                # Jogamos o HTML gerado para a variável de estado que o text_area vai ler.
+                st.session_state.codigo_html_final = html_inicial
+                
+                st.success("Prévia gerada! Você pode editar o texto final na coluna ao lado.")
 
         except Exception as e:
             st.error(f"Ocorreu um erro ao gerar a prévia: {e}")
 
 with col2:
-    st.header("🔍 Pré-visualização e Ações")
+    st.header("🔍 Edição Final e PDF")
     
-    if st.session_state.preview_html:
-        st.components.v1.html(st.session_state.preview_html, height=600, scrolling=True)
+    # Se já tivermos algum HTML gerado (ou editado), mostramos a interface
+    if st.session_state.codigo_html_final:
         
-        if st.session_state.show_generate_button:
-            if st.button("⚙️ Gerar PDF", use_container_width=True):
-                try:
-                    pdf_bytes = HTML(string=st.session_state.preview_html).write_pdf()
-                    data_arquivo = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime('%d%m%Y')
-                    nome_arquivo_final = f"{tipo_doc.lower()}_{nome_cliente.replace(' ', '_').lower()}_{data_arquivo}.pdf"
-                    
-                    st.session_state.pdf_bytes = pdf_bytes
-                    st.session_state.file_name = nome_arquivo_final
-                    st.session_state.show_download_button = True
-                    st.success("PDF gerado com sucesso!")
-                    st.balloons()
-                except Exception as e:
-                    st.error(f"Ocorreu um erro ao gerar o arquivo PDF: {e}")
+        st.info("💡 Você pode alterar o texto HTML abaixo manualmente antes de gerar o PDF. Útil para corrigir vírgulas ou remover totais.")
         
-        if st.session_state.show_download_button:
+        # O text_area está vinculado ao session_state.codigo_html_final.
+        # Qualquer alteração manual aqui atualiza a variável automaticamente.
+        html_para_pdf = st.text_area(
+            "Editor Manual (HTML)", 
+            key="codigo_html_final", 
+            height=300
+        )
+
+        st.markdown("### Visualização em Tempo Real")
+        # Mostra o HTML que está no editor no momento
+        st.components.v1.html(html_para_pdf, height=500, scrolling=True)
+        
+        st.markdown("---")
+        
+        if st.button("⚙️ Gerar PDF com as Edições Acima", use_container_width=True):
+            try:
+                # Gera o PDF usando o HTML QUE ESTÁ NO EDITOR (html_para_pdf)
+                pdf_bytes = HTML(string=html_para_pdf).write_pdf()
+                
+                data_arquivo = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime('%d%m%Y')
+                nome_arquivo_final = f"{tipo_doc.lower()}_{nome_cliente.replace(' ', '_').lower()}_{data_arquivo}.pdf"
+                
+                st.session_state.pdf_bytes = pdf_bytes
+                st.session_state.file_name = nome_arquivo_final
+                st.success("PDF gerado com sucesso!")
+                st.balloons()
+            except Exception as e:
+                st.error(f"Ocorreu um erro ao gerar o arquivo PDF: {e}")
+        
+        # Botão de download separado para não sumir no rerun
+        if st.session_state.pdf_bytes:
             st.download_button(
-                label="✅ Baixar PDF",
+                label="✅ Baixar PDF Final",
                 data=st.session_state.pdf_bytes,
                 file_name=st.session_state.file_name,
                 mime="application/pdf",
                 use_container_width=True
             )
     else:
-        st.info("Clique em 'Gerar Prévia' para ver o documento aqui.")
-
-
-
-
+        st.info("Preencha os dados e clique em 'Gerar Prévia' para habilitar o editor.")
